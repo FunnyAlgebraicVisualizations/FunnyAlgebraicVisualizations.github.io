@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta property="og:image" content="https://funnyalgebraicvisualizations.github.io/assets/og-preview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="description" content="Interactive visualization of algebraic structures: Cayley graphs, Lie algebras, and Young tableaux.">
+<meta name="keywords" content="algebra, visualization, group theory, lie algebra, cayley graph, young tableau, mathjax, plotly">
+<meta property="og:image" content="https://funnyalgebraicvisualizations.github.io/assets/og-preview.png">
+<meta name="twitter:card" content="summary_large_image">
+
+
+  <title>Interactive Cayley Graphs of Symmetric Groups</title>
+
+  <!-- Academic fonts -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=STIX+Two+Text:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Favicon (circular crop via canvas) -->
+  <link id="dynamic-favicon" rel="icon" type="image/png" href="assets/cayley_table_(S5).png"/>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const favicon = document.getElementById("dynamic-favicon");
+      const image = new Image();
+      image.src = favicon.href;
+      image.onload = () => {
+        const size = 64;
+        const canvas = document.createElement("canvas");
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, size, size);
+        ctx.save(); ctx.beginPath();
+        ctx.arc(size/2, size/2, size/2, 0, Math.PI*2);
+        ctx.clip(); ctx.drawImage(image, 0, 0, size, size);
+        ctx.restore();
+        favicon.href = canvas.toDataURL("image/png");
+      };
+    });
+  </script>
+
+  <!-- MathJax -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$','$$'], ['\\[','\\]']]
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    :root{
+      /* Light (default) */
+      --bg: #faf9f7;
+      --surface: #ffffff;
+      --panel: #f0efeb;
+      --panel-border: #d9d6ce;
+      --ink: #1e1e1e;
+      --ink-muted: #5c5a57;
+      --accent: #233f8c;
+      --accent-2: #6e85ff;
+      --rule: #e7e4dc;
+
+      --sidebar-width: 260px;
+      --bookmark-width: 48px;
+      --content-max: 78ch;
+      --shadow: 0 1px 0 rgba(0,0,0,0.03);
+      --card-hover: #faf7f0;
+      --menu-hover: #e6e3dc;
+      --link-underline: 2px;
+
+      --viewer-max: var(--content-max);
+      --viewer-height: 520px;
+      --viewer-height-sm: 380px;
+
+      --warn-bg: #fff3cd;
+      --warn-fg: #856404;
+      --warn-bd: #ffeeba;
+    }
+    .theme-dark{
+      --bg: #0e0f13;
+      --surface: #14161b;
+      --panel: #171a20;
+      --panel-border: #2a2e38;
+      --ink: #e7e8ea;
+      --ink-muted: #a9aeb6;
+      --accent: #aab7ff;
+      --accent-2: #6b7cff;
+      --rule: #242833;
+
+      --shadow: 0 1px 0 rgba(0,0,0,0.3);
+      --card-hover: #181c24;
+      --menu-hover: #202532;
+      --link-underline: 1px;
+
+      --warn-bg: #2b2a16;
+      --warn-fg: #f4e6a6;
+      --warn-bd: #49431d;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not(.js-theme-applied) {
+        --bg: #0e0f13; --surface: #14161b; --panel: #171a20; --panel-border: #2a2e38;
+        --ink: #e7e8ea; --ink-muted: #a9aeb6; --accent: #aab7ff; --accent-2: #6b7cff; --rule: #242833;
+        --shadow: 0 1px 0 rgba(0,0,0,0.3); --card-hover: #181c24; --menu-hover: #202532; --link-underline: 1px;
+        --warn-bg: #2b2a16; --warn-fg: #f4e6a6; --warn-bd: #49431d;
+      }
+    }
+
+    *{ box-sizing: border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0; color: var(--ink); background: var(--bg);
+      font-family: "Source Sans 3", system-ui, -apple-system, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      overflow: hidden;
+    }
+    h1,h2,h3,h4{ font-family: "STIX Two Text", Georgia, Cambria, "Times New Roman", serif; letter-spacing: .1px; }
+    a{ color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+    a:hover{ text-decoration-thickness: var(--link-underline); }
+
+    /* Bookmark-style sidebar */
+    .sidebar{
+      position: fixed; inset: 0 auto 0 0;
+      width: var(--sidebar-width); height: 100%;
+      background: var(--panel);
+      border-right: 1px solid var(--panel-border);
+      display:flex; flex-direction:column; z-index: 20;
+      transition: transform .28s ease;
+      transform: translateX(calc(var(--bookmark-width) - var(--sidebar-width)));
+    }
+    body.sidebar-open .sidebar{ transform: translateX(0); }
+
+    .bookmark-tab{
+      position: fixed; left: 0; top: 80px;
+      width: var(--bookmark-width); height: 140px;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      color: #fff; border-top-right-radius: 10px; border-bottom-right-radius: 10px;
+      box-shadow: 0 6px 14px rgba(0,0,0,.12);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; user-select:none; z-index:30;
+      transition: transform .28s ease, opacity .2s ease;
+    }
+    body.sidebar-open .bookmark-tab{ opacity:0; pointer-events:none; transform: translateX(-8px); }
+    .bookmark-tab::after{
+      content:""; position:absolute; bottom:-10px; left:0; width:0; height:0;
+      border-left: var(--bookmark-width) solid transparent; border-top: 10px solid rgba(0,0,0,.15);
+    }
+    .bookmark-icon{ writing-mode: vertical-rl; text-orientation: mixed; font-weight:700; letter-spacing:1px; font-size:12px; }
+
+    .sidebar-inner{ position:relative; height:100%; padding: 8px 0 12px; overflow:hidden; padding-right: var(--bookmark-width); }
+    .brand{
+      padding: 8px 12px 10px; border-bottom: 1px solid var(--panel-border); margin-bottom: 8px;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+    .brand h1{ margin:0 0 4px; font-size:18px; font-weight:700; color:var(--ink); }
+    .brand small{ color: var(--ink-muted); font-size:12.5px; margin-right:auto; }
+    .sidebar-close{
+      appearance:none; border:1px solid var(--panel-border); background: var(--surface); color: var(--ink);
+      border-radius:8px; width:32px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+      font-weight:700; cursor:pointer; box-shadow: var(--shadow); transition: background .12s ease, transform .06s ease;
+    }
+    .sidebar-close:hover{ transform: translateY(-1px); }
+    .sidebar-close:focus{ outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .menu{ list-style:none; margin:8px 0 0; padding:0; }
+    .menu li{ margin:0; }
+    .menu button{
+      width: calc(var(--sidebar-width) - var(--bookmark-width));
+      border:0; background:transparent; color: var(--ink);
+      text-align:left; padding:10px 16px; font-size:14px; cursor:pointer; border-radius:6px;
+      transition: background .12s ease, opacity .15s ease, transform .15s ease;
+      display:block;
+    }
+    .menu button:hover, .menu button:focus{ background: var(--menu-hover); outline:none; }
+    body:not(.sidebar-open) .sidebar .menu button{ opacity:0; pointer-events:none; transform: translateX(-8px); }
+    body:not(.sidebar-open) .sidebar .brand h1, body:not(.sidebar-open) .sidebar .brand small{
+      opacity:0; transform: translateX(-8px); transition: opacity .15s ease, transform .15s ease;
+    }
+
+    /* Main layout */
+    .main{
+      position:absolute; inset:0 0 0 var(--bookmark-width);
+      transition:left .28s ease, width .28s ease;
+      padding:22px 24px; overflow:auto; z-index:10;
+    }
+    body.sidebar-open .main{ left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); }
+
+    .header{
+      max-width: var(--content-max); margin:0 auto 14px; padding-bottom:12px; border-bottom:1px solid var(--rule);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .header h2{ margin:0 0 2px; font-size:28px; line-height:1.2; }
+    .header p{ margin:0; color:var(--ink-muted); font-size:15px; }
+
+    /* Icon-only theme toggle button */
+    .icon-btn{
+      appearance: none;
+      border: 1px solid var(--panel-border);
+      background: var(--surface);
+      color: var(--ink);
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: background .12s ease, transform .06s ease, color .12s ease;
+      padding: 0; line-height: 0;
+    }
+    .icon-btn:hover{ transform: translateY(-1px); }
+    .icon-btn:focus{ outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .intro{ max-width: var(--content-max); margin:0 auto; background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:18px; box-shadow: var(--shadow); }
+    .intro h3{ margin-top:0; font-size:18px; }
+    .intro p{ margin:8px 0; font-size:15px; }
+
+    /* Shared width wrapper so underline aligns with cards */
+    .section { max-width: var(--content-max); margin: 0 auto; }
+    .section .section-title{
+      margin: 18px 0 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--rule);
+      font-size:16px; color: var(--ink);
+    }
+
+    .quick-links{
+      max-width: var(--content-max); /* redundant inside .section but keeps consistency if moved */
+      margin: 0 auto;
+      display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:10px;
+    }
+    .qcard{ background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:12px; transition: background .12s ease, transform .08s ease; cursor:pointer; }
+    .qcard:hover{ background: var(--card-hover); transform: translateY(-1px); }
+    .qcard h4{ margin:0 0 4px; font-size:15px; }
+    .qcard p{ margin:0; color:var(--ink-muted); font-size:13.5px; }
+
+    /* Graph Viewer (aligned, initially hidden) */
+    .viewer{
+      max-width: var(--viewer-max); height: var(--viewer-height);
+      margin:14px auto; background:var(--surface); border:1px solid var(--rule); border-radius:10px; box-shadow: var(--shadow);
+      overflow:hidden; display:none; align-items:stretch; justify-content:stretch; position:relative;
+    }
+    .viewer-header{
+      position:absolute; top:0; left:0; right:0; height:40px; border-bottom:1px solid var(--rule);
+      display:flex; align-items:center; padding:0 12px; background:var(--surface); z-index:2; font-size:13px; color:var(--ink-muted);
+      gap:12px;
+    }
+    .viewer-warn{ display:none; padding:6px 8px; border:1px solid var(--warn-bd); background: var(--warn-bg); color: var(--warn-fg); border-radius:6px; }
+    .viewer-body{ position:absolute; left:0; right:0; top:40px; bottom:0; }
+    .viewer-placeholder{ position:absolute; inset:40px 0 0 0; display:flex; align-items:center; justify-content:center; color:var(--ink-muted); font-size:14px; text-align:center; padding:0 16px; }
+    .viewer iframe{ width:100%; height:100%; border:none; display:none; background:var(--surface); }
+
+    /* --- NOTE block style --- */
+    .note {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink-muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+/* Hover animation for GitHub button (same as theme icon) */
+.github-btn {
+  transition: transform 0.06s ease, background 0.12s ease;
+}
+.github-btn:hover {
+  transform: translateY(-1px);
+}
+
+
+
+    @media (max-width: 900px){ .viewer{ height: var(--viewer-height-sm); } }
+    @media (prefers-reduced-motion: reduce){ .sidebar,.main{ transition:none !important; } }
+
+    /* 平滑滚动效果 */
+html {
+  scroll-behavior: smooth;
+}
+
+  </style>
+</head>
+<body class="js-theme-applied">
+
+  <!-- Bookmark tab -->
+  <div class="bookmark-tab" id="bookmarkTab" role="button" aria-label="Open navigation" aria-pressed="false" tabindex="0">
+    <span class="bookmark-icon">MENU</span>
+  </div>
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar" aria-label="Primary navigation">
+    <div class="sidebar-inner">
+      <div class="brand">
+        <h1>Symmetric Groups</h1>
+        <small>Interactive Cayley Graphs</small>
+        <button id="sidebarCloseBtn" class="sidebar-close" aria-label="Close navigation" title="Close">✕</button>
+      </div>
+      <ul class="menu">
+        <li><button onclick="showIntroduction()">Introduction</button></li>
+
+        <li><button onclick="loadGraphSafe({
+          title:'Cayley Graph of $S_4$ (Adjacent Transpositions)',
+          webgl:'graphs/cayley_graph_S4_gs_1.html',
+          note:'Generators $s_1=(12), s_2=(23), s_3=(34)$ give a Coxeter-style presentation of $S_4$. The Cayley graph is 3-regular; layering by distance from the identity visualizes the word metric.'
+        })">S4 (Adjacent Transpositions)</button></li>
+
+        <li><button onclick="loadGraphSafe({
+          title:'Cayley Graph of $S_4$ (One Transposition and One 4-cycle)',
+          webgl:'graphs/cayley_graph_S4_gs_2.html',
+          note:'The pair $\\{(12),(1234)\\}$ also generates $S_4$. Compared with adjacent transpositions, this 2-generator graph mixes a long-range 4-cycle with a local swap.'
+        })">S4 (Transposition + 4-cycle)</button></li>
+
+        <li><button onclick="loadGraphSafe({
+          title:'Cayley Graph of $A_4$ (as a subgroup of $S_4$)',
+          webgl:'graphs/cayley_graph_S4_A4.html',
+          note:'$A_4\\trianglelefteq S_4$ is the subgroup of even permutations (order $12$, index $2$). Restricting the Cayley graph to $A_4$ reveals how edges descend to a normal subgroup.'
+        })">S4 (via A4)</button></li>
+
+        <li><button onclick="loadGraphSafe({
+          title:'Cayley Graph of $C_4$ (inside $S_4$)',
+          webgl:'graphs/cayley_graph_S4_C4.html',
+          note:'$C_4=\\langle(1234)\\rangle$ is a cyclic subgroup of order $4$. The induced Cayley graph is a simple 4-cycle; comparing it with $S_4$ highlights the collapse to an abelian structure.'
+        })">S4 (via C4)</button></li>
+
+        <li><button onclick="loadGraphSafe({
+          title:'Cayley Graph of $D_4$ (inside $S_4$)',
+          webgl:'graphs/cayley_graph_S4_D4.html',
+          note:'$D_4$ (order $8$) is the symmetry group of a square on $\\{1,2,3,4\\}$. It is <em>not</em> normal in $S_4$. The restricted Cayley graph exposes the mix of rotations and reflections characteristic of dihedral groups. The eight $D_4$ vertices are highlighted in green.'
+        })">S4 (via D4)</button></li>
+
+        <li><button onclick="loadGraphSafe({
+          title:'Cayley Graph of $D_4$ (standalone)',
+          webgl:'graphs/cayley_graph_D4_alone.html',
+          note:'$D_4=\\langle (1\\,4\\,3\\,2),(1\\,2)(3\\,4)\\rangle$ (order $8$), the dihedral group on its own. The rotation edges form two $4$-cycles &mdash; the cyclic subgroup $\\langle(1\\,4\\,3\\,2)\\rangle$ and the coset of reflections &mdash; joined by the reflection edges.'
+        })">D4 (standalone)</button></li>
+
+        <li><button onclick="loadGraphSafe({
+          title:'Cayley Graph of $C_4$ (standalone)',
+          webgl:'graphs/cayley_graph_C4_alone.html',
+          note:'$C_4=\\langle(1\\,2\\,3\\,4)\\rangle$, the cyclic group of order $4$ generated by a single $4$-cycle; its Cayley graph is a single square.'
+        })">C4 (standalone)</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main" id="main">
+    <header class="header">
+      <div>
+        <h2>Visualization of Algebraic Structures — Symmetric Groups</h2>
+        <p>Interactive Cayley graphs with scholarly, readable presentation.</p>
+      </div>
+      <!-- Icon-only theme toggle -->
+      <button id="themeBtn" class="icon-btn" aria-label="Toggle theme">
+        <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M18.4 5.6l1.4-1.4M4.2 19.8l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </button>
+     <!-- GitHub button (same size, white background, black icon, hover lift) -->
+<a href="https://github.com/FunnyAlgebraicVisualizations/FunnyAlgebraicVisualizations.github.io"
+   target="_blank" rel="noopener noreferrer"
+   class="github-btn"
+   style="display:inline-flex;align-items:center;justify-content:center;
+          width:34px;height:34px;margin-left:8px;border:1px solid var(--panel-border);
+          border-radius:9px;background:#ffffff;box-shadow:var(--shadow);color:#000;">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"
+       xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 .297a12 12 0 0 0-3.793 23.418c.6.111.793-.26.793-.577v-2.234c-3.338.726-4.042-1.416-4.042-1.416a3.184 3.184 0 0 0-1.335-1.757c-1.091-.745.083-.729.083-.729a2.523 2.523 0 0 1 1.845 1.238 2.55 2.55 0 0 0 3.485 1 2.556 2.556 0 0 1 .762-1.6c-2.665-.304-5.467-1.332-5.467-5.931a4.64 4.64 0 0 1 1.236-3.216 4.3 4.3 0 0 1 .117-3.17s1.008-.323 3.301 1.23a11.42 11.42 0 0 1 6.006 0c2.291-1.553 3.297-1.23 3.297-1.23a4.3 4.3 0 0 1 .119 3.17 4.63 4.63 0 0 1 1.234 3.216c0 4.61-2.807 5.625-5.479 5.922a2.875 2.875 0 0 1 .818 2.231v3.306c0 .32.191.694.8.576A12 12 0 0 0 12 .297Z"/>
+  </svg>
+</a>
+
+
+    </header>
+
+    <div id="graphDescription" class="intro">
+      <h3>About this Project</h3>
+      <p>
+        This website presents interactive visualizations of Cayley graphs for the symmetric group $S_n$,
+        emphasizing how different generating sets and subgroup structures shape the geometry of the graph.
+        Explanations and notation are typeset with MathJax for clarity.
+      </p>
+    </div>
+
+    <!-- Quick Access: wrapped in .section to align underline with cards -->
+    <div class="section">
+      <h4 class="section-title">Quick Access</h4>
+      <section class="quick-links" aria-label="Quick graph links">
+        <article class="qcard" onclick="loadGraphSafe({
+          title:'Cayley Graph of $S_4$ (Adjacent Transpositions)',
+          webgl:'graphs/cayley_graph_S4_gs_1.html',
+          note:'Generators $s_1=(12), s_2=(23), s_3=(34)$ give a Coxeter-style presentation of $S_4$. The Cayley graph is 3-regular; layering by distance from the identity visualizes the word metric.'
+        })">
+          <h4>$S_4$ — Adjacent Transpositions</h4>
+          <p>Minimal local moves generate the whole group.</p>
+        </article>
+
+        <article class="qcard" onclick="loadGraphSafe({
+          title:'Cayley Graph of $S_4$ (One Transposition and One 4-cycle)',
+          webgl:'graphs/cayley_graph_S4_gs_2.html',
+          note:'The pair $\\{(12),(1234)\\}$ also generates $S_4$. Compared with adjacent transpositions, this 2-generator graph mixes a long-range 4-cycle with a local swap.'
+        })">
+          <h4>$S_4$ — Transposition & 4-cycle</h4>
+          <p>A contrasting generating pair and resulting geometry.</p>
+        </article>
+
+        <article class="qcard" onclick="loadGraphSafe({
+          title:'Cayley Graph of $A_4$ (as a subgroup of $S_4$)',
+          webgl:'graphs/cayley_graph_S4_A4.html',
+          note:'$A_4\\trianglelefteq S_4$ is the subgroup of even permutations (order $12$, index $2$). Restricting the Cayley graph to $A_4$ reveals how edges descend to a normal subgroup.'
+        })">
+          <h4>$S_4$ — via $A_4$</h4>
+          <p>Structure induced by the alternating subgroup.</p>
+        </article>
+
+        <article class="qcard" onclick="loadGraphSafe({
+          title:'Cayley Graph of $C_4$ (inside $S_4$)',
+          webgl:'graphs/cayley_graph_S4_C4.html',
+          note:'$C_4=\\langle(1234)\\rangle$ is a cyclic subgroup of order $4$. The induced Cayley graph is a simple 4-cycle; comparing it with $S_4$ highlights the collapse to an abelian structure.'
+        })">
+          <h4>$S_4$ — via $C_4$</h4>
+          <p>Cyclic subgroup perspective and adjacency geometry.</p>
+        </article>
+
+        <article class="qcard" onclick="loadGraphSafe({
+          title:'Cayley Graph of $D_4$ (inside $S_4$)',
+          webgl:'graphs/cayley_graph_S4_D4.html',
+          note:'$D_4$ (order $8$) is the symmetry group of a square on $\\{1,2,3,4\\}$. It is <em>not</em> normal in $S_4$. The restricted Cayley graph exposes the mix of rotations and reflections characteristic of dihedral groups.'
+        })">
+          <h4>$S_4$ — via $D_4$</h4>
+          <p>Graph induced by the dihedral subgroup.</p>
+        </article>
+
+        <article class="qcard" onclick="loadGraphSafe({
+          title:'Cayley Graph of $D_4$ (standalone)',
+          webgl:'graphs/cayley_graph_D4_alone.html',
+          note:'$D_4=\\langle (1\\,4\\,3\\,2),(1\\,2)(3\\,4)\\rangle$ (order $8$), the dihedral group on its own. The rotation edges form two $4$-cycles &mdash; the cyclic subgroup $\\langle(1\\,4\\,3\\,2)\\rangle$ and the coset of reflections &mdash; joined by the reflection edges.'
+        })">
+          <h4>$D_4$ — Standalone</h4>
+          <p>The dihedral group of order 8 by itself.</p>
+        </article>
+
+        <article class="qcard" onclick="loadGraphSafe({
+          title:'Cayley Graph of $C_4$ (standalone)',
+          webgl:'graphs/cayley_graph_C4_alone.html',
+          note:'$C_4=\\langle(1\\,2\\,3\\,4)\\rangle$, the cyclic group of order $4$ generated by a single $4$-cycle; its Cayley graph is a single square.'
+        })">
+          <h4>$C_4$ — Standalone</h4>
+          <p>The cyclic group of order 4 as one square.</p>
+        </article>
+      </section>
+    </div>
+
+    <!-- Graph Viewer -->
+    <section id="viewer" class="viewer" aria-label="Graph viewer">
+      <div class="viewer-header">
+        <span>Graph Viewer</span>
+        <span id="viewerWarn" class="viewer-warn">WebGL is unavailable in this browser. Enable hardware acceleration or try a different browser.</span>
+      </div>
+      <div class="viewer-body">
+        <div id="viewerPlaceholder" class="viewer-placeholder">
+          Select a graph from Quick Access or the left menu to display it here.
+        </div>
+        <iframe id="graphFrame" title="Cayley Graph"></iframe>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /* ===== Theme init (icon swap) ===== */
+    (function initTheme(){
+      const stored = localStorage.getItem('site-theme');
+      const root = document.documentElement;
+      if (stored === 'dark') document.body.classList.add('theme-dark');
+      else if (stored === 'light') document.body.classList.remove('theme-dark');
+      root.classList.add('js-theme-applied');
+
+      const btn = document.getElementById('themeBtn');
+      const icon = document.getElementById('themeIcon');
+
+      const SUN = `
+        <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M18.4 5.6l1.4-1.4M4.2 19.8l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      `;
+      const MOON = `
+        <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.2 8.2 0 1 0 11 11Z" stroke="currentColor" stroke-width="1.6" fill="none"/>
+      `;
+
+      const setIcon = () => {
+        const isDark = document.body.classList.contains('theme-dark');
+        icon.innerHTML = isDark ? SUN : MOON; // show sun in dark mode, moon in light
+        btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+      };
+
+      setIcon();
+
+      btn.addEventListener('click', () => {
+        document.body.classList.toggle('theme-dark');
+        const mode = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+        localStorage.setItem('site-theme', mode);
+        setIcon();
+      });
+    })();
+
+    /* ===== Bookmark tab & sidebar ===== */
+    const tab = document.getElementById('bookmarkTab');
+    function openSidebar(){ document.body.classList.add('sidebar-open'); tab.setAttribute('aria-pressed','true'); }
+    function closeSidebar(){ if(document.body.classList.contains('sidebar-open')){ document.body.classList.remove('sidebar-open'); tab.setAttribute('aria-pressed','false'); tab.focus?.(); } }
+    function toggleSidebar(){ document.body.classList.contains('sidebar-open') ? closeSidebar() : openSidebar(); }
+    tab.addEventListener('click', toggleSidebar);
+    tab.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleSidebar(); }});
+    document.getElementById('sidebarCloseBtn')?.addEventListener('click', closeSidebar);
+    document.getElementById('sidebarCloseBtn')?.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); closeSidebar(); }});
+    document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSidebar(); });
+
+    /* ===== MathJax helper ===== */
+    function reRenderMath() {
+      if (window.MathJax) MathJax.typesetPromise([document.getElementById('graphDescription')]);
+    }
+
+    /* ===== WebGL probe ===== */
+    function isWebGLAvailable(){
+      try{
+        const c = document.createElement('canvas');
+        const gl2 = c.getContext('webgl2', {antialias:false, failIfMajorPerformanceCaveat:false});
+        if (gl2) return {ok:true, ver:2};
+        const gl1 = c.getContext('webgl') || c.getContext('experimental-webgl');
+        return {ok: !!gl1, ver: gl1?1:0};
+      }catch(e){ return {ok:false, ver:0}; }
+    }
+
+    /* ===== Safe loader with NOTE support ===== */
+    function loadGraphSafe(opts){
+      const viewer = document.getElementById('viewer');
+      const iframe = document.getElementById('graphFrame');
+      const placeholder = document.getElementById('viewerPlaceholder');
+      const warn = document.getElementById('viewerWarn');
+
+      if (viewer && viewer.style.display !== 'flex') viewer.style.display = 'flex';
+
+      // Title + explanatory note (LaTeX supported)
+      const descEl = document.getElementById('graphDescription');
+      const noteHTML = opts.note ? `<div class="note">${opts.note}</div>` : '';
+      descEl.className = 'intro';
+      descEl.innerHTML = `<h3>${opts.title}</h3>${noteHTML}`;
+      if (window.MathJax) MathJax.typesetPromise([descEl]);
+
+      const probe = isWebGLAvailable();
+
+      if (probe.ok) {
+        if (warn) warn.style.display = 'none';
+        if (placeholder) placeholder.style.display = 'none';
+        iframe.src = opts.webgl;
+        iframe.style.display = 'block';
+      } else {
+        if (warn) {
+          warn.textContent = 'WebGL is unavailable in this browser. Enable hardware acceleration or try a different browser.';
+          warn.style.display = 'inline-block';
+        }
+        if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
+        if (placeholder) {
+          placeholder.innerHTML = '<div style="padding:12px;text-align:center;color:var(--ink-muted)">Interactive graph requires WebGL.</div>';
+          placeholder.style.display = 'flex';
+        }
+      }
+
+      if (document.body.classList.contains('sidebar-open')) document.body.classList.remove('sidebar-open');
+      viewer?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(()=>iframe.focus?.(), 50);
+    }
+
+    /* ===== Intro (hide viewer initially) ===== */
+    function showIntroduction(){
+      const iframe = document.getElementById('graphFrame');
+      const placeholder = document.getElementById('viewerPlaceholder');
+      const viewer = document.getElementById('viewer');
+      const warn = document.getElementById('viewerWarn');
+
+      if (iframe){ iframe.style.display = 'none'; iframe.src = ''; }
+      if (placeholder){ placeholder.style.display = 'flex'; placeholder.innerHTML = 'Select a graph from Quick Access or the left menu to display it here.'; }
+      if (viewer){ viewer.style.display = 'none'; }
+      if (warn){ warn.style.display = 'none'; }
+
+      const descEl = document.getElementById('graphDescription');
+      descEl.className = 'intro';
+      descEl.innerHTML = `
+        <h3>About this Project</h3>
+        <p>
+          This website presents interactive visualizations of Cayley graphs for the symmetric group $S_n$,
+          emphasizing how different generating sets and subgroup structures shape the geometry of the graph.
+        </p>
+      `;
+      reRenderMath();
+    }
+
+    document.addEventListener('DOMContentLoaded', showIntroduction);
+  </script>
+</body>
+</html>
